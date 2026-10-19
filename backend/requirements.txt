@@ -1,0 +1,5 @@
+# Runtime dependencies. Keep this list short; every addition needs a reason
+# recorded in PROJECT_RULES.md.
+Django>=5.2,<5.3          # LTS release, supported until April 2028
+psycopg[binary]>=3.2,<3.4 # PostgreSQL driver (Supabase)
+python-dotenv>=1.0,<2     # loads backend/.env in local development

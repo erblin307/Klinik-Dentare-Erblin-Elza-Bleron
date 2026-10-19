@@ -1,0 +1,32 @@
+# Secrets and local configuration — never commit these.
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.coverage
+htmlcov/
+
+# Django
+/backend/staticfiles/
+/backend/media/
+*.sqlite3
+
+# Database dumps can contain patient data.
+*.dump
+*.sql.gz
+*.backup
+
+# Node / Next.js (frontend, later)
+node_modules/
+.next/
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
