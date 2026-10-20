@@ -34,6 +34,19 @@ python manage.py createsuperuser
 python manage.py runserver           # admin at http://127.0.0.1:8000/admin/
 ```
 
+## Chatbot (Ollama)
+
+Install [Ollama](https://ollama.com) locally, then:
+
+```bash
+ollama pull qwen2.5:7b               # or another model; set OLLAMA_MODEL
+python manage.py check_ollama        # verifies server and model
+python manage.py purge_chat_conversations   # schedule daily (retention)
+```
+
+The chat API is under `/api/chat/` (see "Chatbot" in `../ARCHITECTURE.md`).
+Tests do not need Ollama.
+
 ## Tests
 
 ```bash

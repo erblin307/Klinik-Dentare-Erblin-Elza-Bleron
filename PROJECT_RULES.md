@@ -32,6 +32,9 @@ Keep dependencies few, mainstream and pinned to a compatible range in
 | psycopg 3       | PostgreSQL driver (Supabase).                               |
 | python-dotenv   | Loads `backend/.env` during local development.              |
 
+The chatbot uses Ollama through its HTTP API with the standard library, and
+plain Django views for its JSON API — no AI SDK and no REST framework.
+
 Not used on purpose: test-data factory libraries (plain functions suffice),
 alternative test runners (Django's runner suffices), any paid AI SDK.
 
@@ -86,8 +89,19 @@ alternative test runners (Django's runner suffices), any paid AI SDK.
 ## 6. AI
 
 - Only local models served by **Ollama**. No paid or external AI APIs.
-- The assistant is not built yet; do not add AI code until that phase starts.
-- Patient data is never sent to any external service.
+- The model never acts: it only interprets messages into the validated
+  schema and phrases answers from the server-built clinic context. Every
+  check and write is server code (`apps/appointments/booking.py`); the model
+  gets no tools and no database access.
+- Bookings, cancellations and reschedules require an explicit confirmation
+  that does not depend on model output; changing an existing booking
+  requires its booking reference.
+- Texts stating booking facts (times, dentists, references) come from the
+  templates in `apps/chatbot/messages.py`, never from the model.
+- The knowledge given to the model is public clinic information from the
+  database only — never patient data, internal notes or other clinics' data.
+- Patient data is never sent to any external service; chat contents are not
+  logged and are purged after the retention period.
 
 ## 7. Database and migrations
 

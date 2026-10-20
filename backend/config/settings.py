@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     "apps.scheduling",
     "apps.appointments",
     "apps.knowledge",
+    "apps.chatbot",
 ]
 
 MIDDLEWARE = [
@@ -141,6 +142,17 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+
+# Chatbot: a local Ollama server only; no external AI service is used.
+OLLAMA_BASE_URL = env("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
+OLLAMA_MODEL = env("OLLAMA_MODEL", "qwen2.5:7b")
+OLLAMA_TIMEOUT_SECONDS = int(env("OLLAMA_TIMEOUT_SECONDS", "60"))
+CHATBOT_DEFAULT_LANGUAGE = env("CHATBOT_DEFAULT_LANGUAGE", "sq")
+if CHATBOT_DEFAULT_LANGUAGE not in ("sq", "en", "de"):
+    raise ImproperlyConfigured("CHATBOT_DEFAULT_LANGUAGE must be sq, en or de.")
+CHATBOT_CONVERSATION_TTL_MINUTES = int(env("CHATBOT_CONVERSATION_TTL_MINUTES", "60"))
+CHATBOT_RETENTION_DAYS = int(env("CHATBOT_RETENTION_DAYS", "30"))
 
 
 # Security defaults that only make sense outside local development.

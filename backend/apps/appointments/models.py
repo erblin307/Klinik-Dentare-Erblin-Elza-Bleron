@@ -1,3 +1,5 @@
+import secrets
+
 from django.contrib.postgres.constraints import ExclusionConstraint
 from django.contrib.postgres.fields import DateTimeRangeField, RangeBoundary, RangeOperators
 from django.db import models
@@ -37,6 +39,19 @@ SLOT_RELEASING_STATUSES = [AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHO
 # back-to-back appointments (10:00–10:30, 10:30–11:00) do not overlap.
 BOOKED_INTERVAL = TsTzRange("start_at", "end_at", RangeBoundary())
 
+# Booking references: 8 characters without look-alikes (0/O, 1/I), ~40 bits.
+# They always contain a digit, so ordinary words are never mistaken for one.
+REFERENCE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+REFERENCE_LENGTH = 8
+
+
+def generate_reference():
+    while True:
+        reference = "".join(secrets.choice(REFERENCE_ALPHABET) for _ in range(REFERENCE_LENGTH))
+        if any(ch.isdigit() for ch in reference):
+            return reference
+
+
 # Names of the double-booking constraints (also used by the booking service).
 DENTIST_OVERLAP_CONSTRAINT = "appointments_no_dentist_overlap"
 PATIENT_OVERLAP_CONSTRAINT = "appointments_no_patient_overlap"
@@ -61,9 +76,18 @@ class Appointment(ClinicScopedModel):
         max_length=20, choices=AppointmentSource.choices, default=AppointmentSource.STAFF
     )
     notes = models.TextField(blank=True, help_text="Internal notes for clinic staff.")
+    reference = models.CharField(
+        max_length=REFERENCE_LENGTH,
+        default=generate_reference,
+        editable=False,
+        help_text="Secret code given to the patient; proves ownership of the booking.",
+    )
 
     class Meta:
         constraints = [
+            models.UniqueConstraint(
+                fields=["reference"], name="appointments_appointment_reference_key"
+            ),
             models.CheckConstraint(
                 condition=Q(end_at__gt=F("start_at")),
                 name="appointments_appointment_end_after_start",

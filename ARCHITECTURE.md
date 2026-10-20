@@ -11,7 +11,7 @@ is built today and the decisions behind it. Rules for working on it are in
 | Backend, admin | Django 5.2 LTS (Python)  | Schema (Task 1); admin and booking engine (Task 2) |
 | Database       | Supabase PostgreSQL      | Schema and migrations ready  |
 | Frontend       | Next.js + TypeScript     | Later phase — not started    |
-| AI assistant   | Ollama (local models)    | Later phase — not started    |
+| AI assistant   | Ollama (local models)    | Chatbot backend and API (Task 3) |
 
 Django owns the database schema: all tables are created by Django migrations,
 and Django connects to Supabase as a plain PostgreSQL client. Supabase's own
@@ -37,7 +37,8 @@ APIs (Data API, Auth, Storage) are not used.
     │   ├── patients/         # Patient
     │   ├── scheduling/       # WorkingHours, TimeOff
     │   ├── appointments/     # Appointment; booking engine (booking.py)
-    │   └── knowledge/        # KnowledgeEntry — curated content for the AI
+    │   ├── knowledge/        # KnowledgeEntry — curated content for the AI
+    │   └── chatbot/          # chat engine, Ollama client, chat API, transcripts
     └── tests/                # database integrity tests (cross-app)
 ```
 
@@ -57,6 +58,7 @@ patients     → clinics
 scheduling   → clinics, staff
 appointments → clinics, staff, patients, catalog, scheduling
 knowledge    → clinics
+chatbot      → clinics, catalog, staff, patients, scheduling, appointments, knowledge
 ```
 
 The graph applies to models and services. `admin.py` modules are the
@@ -97,8 +99,10 @@ erDiagram
 | `scheduling_workinghours`  | Weekly recurring availability blocks        | weekday 0–6 (Mon–Sun); end > start; unique block start |
 | `scheduling_timeoff`       | Absences; no dentist = clinic-wide closure  | end > start |
 | `patients_patient`         | Patient contact data                        | — |
-| `appointments_appointment` | Bookings                                    | end > start; valid status/source; **no overlaps**; patient, dentist, service all in the appointment's clinic |
+| `appointments_appointment` | Bookings, each with a secret booking `reference` | end > start; valid status/source; **no overlaps**; patient, dentist, service all in the appointment's clinic; unique reference |
 | `knowledge_knowledgeentry` | Curated public content for the AI assistant | unique title per clinic + language; valid category |
+| `chatbot_chatconversation` | A website chat: language, flow state, token hash | valid language |
+| `chatbot_chatmessage`      | Transcript lines of a conversation          | valid role; same clinic as the conversation |
 
 Deletion policy: clinics, patients, dentists and services that are referenced
 by appointments are protected (`PROTECT`); deactivate them with `is_active` /
@@ -238,7 +242,7 @@ staff member's role, per clinic (`apps/staff/access.py`,
 
 | Role | Can manage | Can view |
 | ---- | ---------- | -------- |
-| Manager | services, staff, dentists, working hours, time off, knowledge (incl. delete); patients and appointments (no delete); own clinic details | everything of the clinic |
+| Manager | services, staff, dentists, working hours, time off, knowledge (incl. delete); patients and appointments (no delete); own clinic details; chat transcripts (read and erase only) | everything of the clinic |
 | Receptionist | patients, appointments, time off | services, staff, dentists, working hours, clinic |
 | Dentist, hygienist, assistant | existing appointments (status, rescheduling); no new bookings | services, staff, dentists, schedules, patients, appointments, clinic |
 
@@ -266,7 +270,109 @@ shows the error message instead of failing.
 The dentist page edits the weekly working hours and the services performed
 inline; time off has its own list.
 
-## 8. Time handling
+## 8. Chatbot
+
+`apps/chatbot` answers questions about the clinic and books, cancels and
+reschedules appointments in Albanian, English and German, with a local model
+served by **Ollama**. No external or paid AI service is involved.
+
+### Modules
+
+| Module | Responsibility |
+| ------ | -------------- |
+| `llm.py` | Ollama HTTP client (`/api/chat`, standard library only; environment proxies ignored so prompts stay local) |
+| `language.py` | Deterministic language detection (sq/en/de) and explicit yes/no recognition |
+| `knowledge.py` | Builds the clinic context from the database (see below) |
+| `interpreter.py` | LLM → validated `Interpretation` (intent + fields) via a JSON schema |
+| `assistant.py` | LLM answers grounded in the clinic context |
+| `messages.py` | Fixed texts in the three languages for everything booking-related |
+| `engine.py` | Conversation flow; calls `apps.appointments.booking` for every check and write |
+| `views.py` | JSON API, authentication, limits |
+
+### What the model may and may not do
+
+The model never acts. It is used for exactly two things:
+
+1. **Interpreting** a message into a fixed JSON schema (intent from an
+   allowlist, service/dentist names, date, time, option number, contact
+   details, booking reference). Every value is re-validated; names are matched
+   against the clinic's own records; malformed output becomes `other`.
+2. **Answering questions** from the clinic context, under rules: only use the
+   given information, say when something is unknown and give the clinic's
+   contact, no diagnoses or medication advice, reply in the user's language.
+
+Everything else is deterministic server code: slot search, the texts that
+state times, dentists and references (`messages.py`, so they cannot be
+distorted), and all writes through the booking service. The model has no
+tools and no database access, so it cannot run SQL; medical questions get a
+fixed safe reply.
+
+### Booking through the chat
+
+1. The visitor names a service (and optionally dentist, date, time). The
+   engine searches real availability (`get_available_slots`, next 14 days or
+   the requested date) and offers up to 5 numbered options, at least 30
+   minutes apart; an exact requested time is selected directly.
+2. It collects first name, last name and phone (validated).
+3. It shows a summary as a **pending action**. Only an explicit confirmation
+   executes it: the API's `confirm_action` with the action's id (the
+   frontend's button), or a reply that consists only of "yes" words
+   ("yes", "po", "ja", ...). A model judging a message as "confirm" is never
+   enough.
+4. `create_appointment` books and confirms; the reply contains the booking
+   reference. If the slot was taken meanwhile, new options are offered.
+
+The patient record is reused only when first name, last name and phone match
+exactly (in that clinic); otherwise a new patient is created. Cancelling and
+rescheduling require the **booking reference** (8 characters from an
+unambiguous alphabet, always with a digit; looked up only in the
+conversation's clinic; at most 5 wrong attempts per conversation), followed by
+the same explicit confirmation.
+
+### Knowledge base
+
+Built per request from the database of the conversation's clinic — nothing
+is hard-coded: clinic details (address, phone, e-mail), active services with
+duration and price (or "after consultation"), bookable dentists with
+specialty, profile and weekly working hours, upcoming clinic-wide closures,
+and published `KnowledgeEntry` articles (policies, FAQs, ...). Articles are
+ranked with PostgreSQL full-text search (`simple` configuration, prefix
+matching for inflected words), same-language articles first, within a size
+budget. Staff manage all of it in the admin; only published articles are
+used. Patient data, internal notes, closure reasons and individual staff
+absences are never included.
+
+### API
+
+| Method and path | Purpose |
+| --------------- | ------- |
+| `POST /api/chat/clinics/<slug>/conversations/` | Start; body `{"language": "sq"}` optional. Returns `conversation_id`, `token` and the greeting. |
+| `POST /api/chat/conversations/<id>/messages/` | `{"message": "..."}` or `{"confirm_action": "<id>"}`. Returns `text`, `language`, `options`, `pending_action`, `error`. |
+| `DELETE /api/chat/conversations/<id>/` | Erase the conversation and its messages. |
+
+- Authentication: `Authorization: Bearer <token>`; only a SHA-256 hash of the
+  token is stored. An unknown conversation and a wrong token both give `404`.
+  No cookies are used, so the endpoints are CSRF-exempt.
+- The clinic comes from the URL when starting and from the conversation
+  afterwards, never from the request body.
+- Limits: 1 000 characters per message, 10 messages per minute and 60 per
+  conversation, 20 new conversations per client address per hour, expiry
+  after `CHATBOT_CONVERSATION_TTL_MINUTES` of inactivity (`410`). A message
+  sent while the previous one is still processed gets `409`.
+- If Ollama is unreachable, the reply is a localised apology with the
+  clinic's contact and `"error": "assistant_unavailable"`.
+
+### Personal data
+
+Visitors' messages (which may contain their name and phone) are stored for
+the conversation's context, shown read-only to clinic managers in the admin,
+erasable by the visitor (`DELETE`) or a manager, and deleted after
+`CHATBOT_RETENTION_DAYS` by `python manage.py purge_chat_conversations`
+(schedule it daily). Collected contact details are dropped from the flow
+state once the booking is made. Message contents are never logged. Prompts
+go only to the configured Ollama server.
+
+## 9. Time handling
 
 - `USE_TZ = True`; all `DateTimeField`s are stored in UTC (`timestamptz`).
 - `Clinic.timezone` (IANA name, validated) defines the local zone in which
@@ -279,7 +385,7 @@ inline; time off has its own list.
   and the appointment list shows each start in its clinic's time.
 - Weekdays use Python's numbering: Monday = 0 … Sunday = 6.
 
-## 9. Configuration
+## 10. Configuration
 
 All configuration comes from environment variables (optionally `backend/.env`,
 loaded by python-dotenv; real environment variables take precedence).
@@ -295,8 +401,19 @@ loaded by python-dotenv; real environment variables take precedence).
 | `DB_PORT`                      | no       | `5432`                | |
 | `DB_SSLMODE`                   | no       | `prefer`              | `require` for Supabase |
 | `DB_CONN_MAX_AGE`              | no       | `60`                  | seconds; persistent connections |
+| `OLLAMA_BASE_URL`              | no       | `http://127.0.0.1:11434` | local Ollama server |
+| `OLLAMA_MODEL`                 | no       | `qwen2.5:7b`          | any installed Ollama chat model |
+| `OLLAMA_TIMEOUT_SECONDS`       | no       | `60`                  | per model request |
+| `CHATBOT_DEFAULT_LANGUAGE`     | no       | `sq`                  | `sq`, `en` or `de` |
+| `CHATBOT_CONVERSATION_TTL_MINUTES` | no   | `60`                  | inactivity before a chat expires |
+| `CHATBOT_RETENTION_DAYS`       | no       | `30`                  | used by `purge_chat_conversations` |
 
-## 10. Supabase
+`python manage.py check_ollama` verifies that Ollama is reachable and the
+model is installed (`ollama pull <model>`). Rate limits use Django's cache:
+the default in-process cache is fine for one process; several workers need
+a shared cache backend for exact limits.
+
+## 11. Supabase
 
 - Connect with the **Session pooler** (IPv4, port 5432) or the direct
   connection. The Transaction pooler (port 6543) is not supported by this
@@ -319,7 +436,7 @@ Deployment items still open (depend on the hosting choice):
 `SECURE_HSTS_SECONDS`, `SECURE_SSL_REDIRECT` / proxy SSL header, static file
 serving.
 
-## 11. Testing
+## 12. Testing
 
 - Django's test runner against a local PostgreSQL (`python manage.py test`).
 - `backend/tests/` holds:
@@ -331,9 +448,14 @@ serving.
   - concurrency tests with real parallel transactions (`TransactionTestCase`
     and threads), including one that proves the database blocks a booking
     whose pre-check could not see a concurrent uncommitted one;
-  - admin tests: clinic isolation, role permissions, booking via the admin.
+  - admin tests: clinic isolation, role permissions, booking via the admin;
+  - chatbot tests (`test_chat_*`): language detection and templates in all
+    three languages, knowledge retrieval and isolation, the Ollama client
+    against a local stand-in server, interpretation validation, booking /
+    cancel / reschedule flows, the confirmation rules, the API (auth, limits,
+    erasure, concurrent messages). Tests use a fake model; no Ollama needed.
 
-## 12. Decisions
+## 13. Decisions
 
 | Decision | Reason |
 | -------- | ------ |
@@ -348,4 +470,11 @@ serving.
 | Admin permissions from `StaffMember.role` per clinic, not Django groups | One source of truth for "who works where as what"; object checks use the role in the object's clinic. |
 | Bookings confirmed immediately | Valid bookings need no manual step; `pending` remains for future flows. |
 | Slots aligned to the start of each working period, 15-minute step | Predictable times; the step is a parameter. |
+| Plain Django JSON views instead of Django REST Framework | Three endpoints with small payloads; no new dependency. |
+| Ollama via `urllib`, not an SDK | One endpoint is used; no new dependency; explicit control over proxies and timeouts. |
+| The LLM interprets and phrases, the server decides and writes | Keeps bookings correct and safe with small local models; no tool/SQL access for the model. |
+| Booking texts from templates, not generated | Times, dentists and references must be exact in every language. |
+| Deterministic language detection | Reliable for sq/en/de, testable, no dependency. |
+| Booking reference on `Appointment` | Lets anonymous visitors prove ownership of a booking; also useful for staff search. |
+| Full-text search rather than embeddings | Clinic knowledge is small; avoids pgvector and an embedding model for now. |
 | Deadlocks between conflicting inserts are retried (max. 3 attempts) | Known PostgreSQL behaviour of exclusion constraints under exact races; the retry turns it into the correct `SLOT_TAKEN` error. |

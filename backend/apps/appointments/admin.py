@@ -58,7 +58,7 @@ class AppointmentAdminForm(forms.ModelForm):
 @admin.register(Appointment)
 class AppointmentAdmin(ClinicScopedAdmin):
     form = AppointmentAdminForm
-    list_display = ["clinic_time", "patient", "dentist", "service", "status", "clinic"]
+    list_display = ["clinic_time", "patient", "dentist", "service", "status", "reference", "clinic"]
     list_filter = [
         CLINIC_FILTER,
         ("dentist", admin.RelatedOnlyFieldListFilter),
@@ -66,7 +66,7 @@ class AppointmentAdmin(ClinicScopedAdmin):
         "source",
     ]
     list_select_related = ["clinic", "patient", "dentist__staff_member", "service"]
-    search_fields = ["patient__last_name", "patient__first_name"]
+    search_fields = ["patient__last_name", "patient__first_name", "=reference"]
     autocomplete_fields = ["patient", "dentist", "service"]
     date_hierarchy = "start_at"
     ordering = ["-start_at"]
@@ -74,7 +74,7 @@ class AppointmentAdmin(ClinicScopedAdmin):
 
     add_fields = ["patient", "dentist", "service", "start_at", "source", "notes"]
     change_fields = [
-        "clinic", "patient", "service", "dentist", "start_at", "end_at",
+        "clinic", "reference", "patient", "service", "dentist", "start_at", "end_at",
         "status", "source", "notes", "created_at", "updated_at",
     ]  # fmt: skip
 
@@ -83,7 +83,7 @@ class AppointmentAdmin(ClinicScopedAdmin):
 
     def get_readonly_fields(self, request, obj=None):
         fields = super().get_readonly_fields(request, obj)
-        return [*fields, "patient", "service", "end_at", "source"] if obj else fields
+        return [*fields, "reference", "patient", "service", "end_at", "source"] if obj else fields
 
     @admin.display(description="Start (clinic time)", ordering="start_at")
     def clinic_time(self, obj):

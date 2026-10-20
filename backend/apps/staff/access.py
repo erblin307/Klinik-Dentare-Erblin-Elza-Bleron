@@ -57,6 +57,9 @@ ROLE_PERMISSIONS = {
         patients__patient=EDIT,
         appointments__appointment=EDIT,
         knowledge__knowledgeentry=MANAGE,
+        # Transcripts may be read and erased (privacy requests), never edited.
+        chatbot__chatconversation=("view", "delete"),
+        chatbot__chatmessage=VIEW,
     ),
     StaffRole.RECEPTIONIST: _grant(
         clinics__clinic=VIEW,

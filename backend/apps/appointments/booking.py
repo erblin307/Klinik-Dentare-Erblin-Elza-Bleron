@@ -39,6 +39,8 @@ from apps.staff.models import DentistService
 from .models import (
     DENTIST_OVERLAP_CONSTRAINT,
     PATIENT_OVERLAP_CONSTRAINT,
+    REFERENCE_ALPHABET,
+    REFERENCE_LENGTH,
     SLOT_RELEASING_STATUSES,
     Appointment,
     AppointmentSource,
@@ -279,6 +281,26 @@ def change_status(appointment, status, *, now=None):
 def cancel_appointment(appointment, *, now=None):
     """Cancel an appointment that has not started yet; its slot becomes free."""
     return change_status(appointment, AppointmentStatus.CANCELLED, now=now)
+
+
+def normalize_reference(text):
+    """``"abcd-efgh"`` -> ``"ABCDEFGH"``; ``None`` if it cannot be a booking reference."""
+    candidate = "".join(ch for ch in str(text).upper() if ch not in " -")
+    if len(candidate) == REFERENCE_LENGTH and all(ch in REFERENCE_ALPHABET for ch in candidate):
+        return candidate
+    return None
+
+
+def find_appointment(clinic, reference):
+    """The clinic's appointment with this booking reference, or ``None``."""
+    reference = normalize_reference(reference)
+    if reference is None:
+        return None
+    return (
+        Appointment.objects.select_related("service", "dentist__staff_member", "patient")
+        .filter(clinic=clinic, reference=reference)
+        .first()
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -6,6 +6,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from apps.accounts.models import User
+from apps.chatbot.models import ChatConversation
 from apps.knowledge.models import KnowledgeEntry
 from apps.scheduling.models import TimeOff, Weekday, WorkingHours
 from apps.staff.models import Dentist, DentistService, StaffRole
@@ -31,6 +32,7 @@ CORE_MODELS = {
     "patients.Patient",
     "appointments.Appointment",
     "knowledge.KnowledgeEntry",
+    "chatbot.ChatConversation",
 }
 
 
@@ -59,6 +61,7 @@ class AdminTests(TestCase):
             clinic=cls.clinic, start_at=MONDAY_9AM, end_at=MONDAY_9AM + timedelta(days=1)
         )
         KnowledgeEntry.objects.create(clinic=cls.clinic, title="Parking", content="Free.")
+        ChatConversation.start(clinic=cls.clinic, language="en")
 
     def setUp(self):
         self.client.force_login(self.superuser)
@@ -68,7 +71,7 @@ class AdminTests(TestCase):
         self.assertLessEqual(CORE_MODELS, registered)
 
     def test_changelist_add_and_change_pages_render(self):
-        for model in admin.site._registry:
+        for model, model_admin in admin.site._registry.items():
             opts = model._meta
             prefix = f"admin:{opts.app_label}_{opts.model_name}"
             urls = {
@@ -78,7 +81,11 @@ class AdminTests(TestCase):
             }
             for view, url in urls.items():
                 with self.subTest(model=opts.label, view=view):
-                    self.assertEqual(self.client.get(url).status_code, 200)
+                    response = self.client.get(url)
+                    expected = 200
+                    if view == "add" and not model_admin.has_add_permission(response.wsgi_request):
+                        expected = 403  # read-only admins (chat transcripts)
+                    self.assertEqual(response.status_code, expected)
 
     def dentist_form(self, staff_member, service):
         return {
