@@ -46,8 +46,9 @@ alternative test runners (Django's runner suffices), any paid AI SDK.
   overlaps, tenant consistency) are enforced **in the database** with named
   constraints, and mirrored by model validation for friendly error messages.
   Never rely on the frontend or the admin alone for integrity.
-- Workflows (booking, availability search, notifications) will live in
-  service modules, not in views, serializers or signals.
+- Workflows live in service modules, not in views, serializers, admin
+  classes or signals. Appointments are created, moved and change status
+  only through `apps/appointments/booking.py`.
 
 ## 4. Multi-clinic isolation
 
@@ -57,6 +58,10 @@ alternative test runners (Django's runner suffices), any paid AI SDK.
   `SameClinicConstraint`, and its target declares
   `UniqueConstraint(fields=["clinic", "id"])`. Tests fail if this is missed.
 - A record's clinic never changes after creation.
+- Admin classes for clinic data inherit `ClinicScopedAdmin` /
+  `ClinicScopedInline`, which restrict rows, choices and permissions to the
+  user's clinics. Staff permissions come from `StaffMember.role` per clinic
+  (`apps/staff/access.py`), never from ad-hoc checks.
 - Future API code must always derive the clinic from the authenticated
   context, never from client input, and filter every query by it.
 

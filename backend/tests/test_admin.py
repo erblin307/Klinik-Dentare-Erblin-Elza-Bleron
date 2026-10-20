@@ -88,9 +88,14 @@ class AdminTests(TestCase):
             "service_links-TOTAL_FORMS": "1",
             "service_links-INITIAL_FORMS": "0",
             "service_links-0-service": service.pk,
+            "working_hours-TOTAL_FORMS": "1",
+            "working_hours-INITIAL_FORMS": "0",
+            "working_hours-0-weekday": "0",
+            "working_hours-0-start_time": "09:00",
+            "working_hours-0-end_time": "13:00",
         }
 
-    def test_dentist_service_inline_inherits_the_dentist_clinic(self):
+    def test_dentist_inlines_inherit_the_dentist_clinic(self):
         staff_member = make_staff_member(self.clinic, role=StaffRole.DENTIST)
         service = make_service(self.clinic)
         response = self.client.post(
@@ -99,6 +104,8 @@ class AdminTests(TestCase):
         self.assertEqual(response.status_code, 302)
         link = DentistService.objects.get(dentist__staff_member=staff_member)
         self.assertEqual(link.clinic, self.clinic)
+        hours = WorkingHours.objects.get(dentist__staff_member=staff_member)
+        self.assertEqual((hours.clinic, hours.start_time), (self.clinic, time(9)))
 
     def test_dentist_service_inline_rejects_other_clinic_service_with_form_error(self):
         staff_member = make_staff_member(self.clinic, role=StaffRole.DENTIST)

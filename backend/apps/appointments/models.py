@@ -37,6 +37,10 @@ SLOT_RELEASING_STATUSES = [AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHO
 # back-to-back appointments (10:00–10:30, 10:30–11:00) do not overlap.
 BOOKED_INTERVAL = TsTzRange("start_at", "end_at", RangeBoundary())
 
+# Names of the double-booking constraints (also used by the booking service).
+DENTIST_OVERLAP_CONSTRAINT = "appointments_no_dentist_overlap"
+PATIENT_OVERLAP_CONSTRAINT = "appointments_no_patient_overlap"
+
 
 class Appointment(ClinicScopedModel):
     patient = models.ForeignKey(
@@ -75,7 +79,7 @@ class Appointment(ClinicScopedModel):
             # Double-booking prevention. Enforced by PostgreSQL (GiST
             # exclusion constraints), so concurrent bookings cannot race.
             ExclusionConstraint(
-                name="appointments_no_dentist_overlap",
+                name=DENTIST_OVERLAP_CONSTRAINT,
                 expressions=[
                     ("dentist", RangeOperators.EQUAL),
                     (BOOKED_INTERVAL, RangeOperators.OVERLAPS),
@@ -86,7 +90,7 @@ class Appointment(ClinicScopedModel):
                 ),
             ),
             ExclusionConstraint(
-                name="appointments_no_patient_overlap",
+                name=PATIENT_OVERLAP_CONSTRAINT,
                 expressions=[
                     ("patient", RangeOperators.EQUAL),
                     (BOOKED_INTERVAL, RangeOperators.OVERLAPS),
