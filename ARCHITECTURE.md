@@ -98,7 +98,7 @@ erDiagram
 | `clinics_clinic`           | Tenant: name, slug, contact, time zone, currency | unique `slug` |
 | `catalog_service`          | Treatments, duration, optional price        | unique name per clinic; duration 5–480 min; price ≥ 0 |
 | `staff_staffmember`        | People working at a clinic, role, optional login | valid role; a login linked once per clinic |
-| `staff_dentist`            | Bookable clinical profile of a staff member | one profile per staff member; same clinic as staff member |
+| `staff_dentist`            | Bookable clinical profile of a staff member, optional portrait path | one profile per staff member; same clinic as staff member; photo is empty or an image path below `/photos/` |
 | `staff_dentistservice`     | Which dentist performs which service        | unique pair; both in the row's clinic |
 | `scheduling_workinghours`  | Weekly recurring availability blocks        | weekday 0–6 (Mon–Sun); end > start; unique block start |
 | `scheduling_timeoff`       | Absences; no dentist = clinic-wide closure  | end > start |
@@ -389,7 +389,7 @@ its explicit confirmation.
 | ------------------------------------- | ------- |
 | `` (clinic) | name, contact, address, time zone, currency, opening hours (per weekday, earliest start to latest end of the bookable dentists), clinic-wide closures of the next 60 days (no reasons) |
 | `services/` | active services: duration, price (`null` = after consultation), ids of dentists who perform them |
-| `dentists/` | bookable dentists: name, specialty, bio, service ids, weekly working hours (no contact data or licence numbers) |
+| `dentists/` | bookable dentists: name, specialty, bio, photo path (or `null`), service ids, weekly working hours (no contact data or licence numbers) |
 | `articles/?language=&category=` | published knowledge articles |
 | `availability/?service=&date=&days=1..7&dentist=` | free slots (30-minute steps) with dentist; rate-limited to 60 requests per minute per client |
 
@@ -426,9 +426,13 @@ Unknown or inactive clinics give `404`.
 - SEO: per-page titles and descriptions, canonical and `hreflang`
   alternates, `sitemap.xml`, `robots.txt`, schema.org `Dentist` data from the
   clinic's real details.
-- Photos: three demo images (`frontend/public/photos/`), each shown with a
-  visible "Demo photo" label until the clinic replaces them with its own
-  (`demo: false` in `src/lib/photos.ts`). Dentists are shown with monograms.
+- Photos live in `frontend/public/photos/`. Page photos are set in
+  `src/lib/photos.ts`; a dentist's portrait is a path set in the admin
+  (`Dentist.photo`, validated in Python and by a database CHECK: only image
+  paths below `/photos/`, so no external URLs). Everything in
+  `/photos/demo/` is a demo image and always carries a visible "Demo photo"
+  label; the repository ships demo images only and assigns none of them to
+  a dentist. Dentists without a photo are shown with a monogram.
 - Production: route `/api/` to Django at the reverse proxy (see "Deployment
   items" in section 12) so the backend sees each visitor's address for rate
   limiting.
@@ -550,5 +554,6 @@ per-client rate limits apply to all visitors together).
 | Next.js forwards `/api/*` to Django (same origin) | No CORS configuration or backend address in the browser. |
 | No UI, i18n, icon or test libraries in the frontend | Tailwind, a small dictionary module, inline SVG icons and Node's test runner suffice. |
 | Demo photos are labelled on the image | Photos presented as the clinic must be real; until then the images say they are demo images. |
+| Dentist photo as a validated website path, not an upload | No new dependency (Pillow) or media storage on Supabase yet; uploads can replace it later. |
 | Full-text search rather than embeddings | Clinic knowledge is small; avoids pgvector and an embedding model for now. |
 | Deadlocks between conflicting inserts are retried (max. 3 attempts) | Known PostgreSQL behaviour of exclusion constraints under exact races; the retry turns it into the correct `SLOT_TAKEN` error. |

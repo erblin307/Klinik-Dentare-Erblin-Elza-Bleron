@@ -1,11 +1,22 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.validators import RegexValidator
 from django.db import models
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.constraints import SameClinicConstraint
 from apps.core.models import ClinicScopedModel
+
+
+# A photo is a file of the website (frontend/public/photos/…), referenced by
+# its path. Only plain paths below /photos/ are accepted: no external URLs
+# (no third-party requests from patients' browsers) and no "..".
+WEBSITE_PHOTO_PATTERN = r"^/photos/(?!.*\.\.)[A-Za-z0-9][A-Za-z0-9/_.-]*\.(jpe?g|png|webp|avif)$"
+validate_website_photo = RegexValidator(
+    regex=WEBSITE_PHOTO_PATTERN,
+    message=_("Enter a path of an image on the website, e.g. /photos/dentists/arta.jpg."),
+)
 
 
 class StaffRole(models.TextChoices):
@@ -67,6 +78,14 @@ class Dentist(ClinicScopedModel):
     license_number = models.CharField(max_length=64, blank=True)
     specialty = models.CharField(max_length=100, blank=True)
     bio = models.TextField(blank=True, help_text="Public profile text.")
+    photo = models.CharField(
+        max_length=200,
+        blank=True,
+        validators=[validate_website_photo],
+        help_text="Path of the portrait on the website, e.g. /photos/dentists/arta.jpg "
+        "(portrait 4:5, about 1000×1250 px). Leave empty to show initials. "
+        "Images in /photos/demo/ are labelled as demo photos.",
+    )
     is_bookable = models.BooleanField(
         default=True, help_text="Whether new appointments can be booked."
     )
@@ -82,6 +101,10 @@ class Dentist(ClinicScopedModel):
             ),
             SameClinicConstraint(
                 field="staff_member", name="staff_dentist_staff_member_same_clinic"
+            ),
+            models.CheckConstraint(
+                condition=Q(photo="") | Q(photo__regex=WEBSITE_PHOTO_PATTERN),
+                name="staff_dentist_photo_path_valid",
             ),
         ]
 

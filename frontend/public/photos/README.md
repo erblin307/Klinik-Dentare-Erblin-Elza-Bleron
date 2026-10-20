@@ -1,8 +1,16 @@
-# Clinic photos
+# Website photos
 
-`hero.jpg` (4:5), `treatment.jpg` (21:9) and `reception.jpg` (4:3) are used
-by `src/lib/photos.ts`. The current files are **demo images** (shown with a
-"Demo photo" label). Replace them with the clinic's own photos — recommended
-sizes 1200×1500, 2400×1030 and 1200×900 — and set `demo: false`.
+| File | Used for | Shape | Recommended size |
+| ---- | -------- | ----- | ---------------- |
+| `hero` | home page, top | 4:5 (arched) | 1200 × 1500 |
+| `treatment` | home page, wide | 21:9 | 2400 × 1030 |
+| `reception` | about page | 4:3 | 1200 × 900 |
+| dentist portraits | dentist profiles | 4:5 (arched) | 1000 × 1250 |
 
-Use real photos of the clinic and team, with the consent of everyone shown.
+Page photos are set in `src/lib/photos.ts`; a dentist's portrait is set in
+the Django admin (Dentist → Photo, e.g. `/photos/dentists/arta.jpg`).
+
+Everything in `demo/` consists of **demo images**, always shown with a
+"Demo photo" label. Put the clinic's own photos outside `demo/` (e.g.
+`photos/dentists/`) and point to them. Use real photos of the clinic and
+team, with the consent of everyone shown.

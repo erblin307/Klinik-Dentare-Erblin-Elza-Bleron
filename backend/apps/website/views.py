@@ -146,6 +146,7 @@ def dentist_list(request, clinic_slug):
             "name": str(dentist),
             "specialty": dentist.specialty,
             "bio": dentist.bio,
+            "photo": dentist.photo or None,
             "service_ids": sorted(s.pk for s in dentist.services.all() if s.is_active),
             "working_hours": _hours(dentist.working_hours.all()),
         }

@@ -29,6 +29,7 @@ export default async function DentistsPage({ params }: PageProps<"/[lang]/dentis
                 locale={lang}
                 t={t.dentists}
                 closedLabel={t.contact.closed}
+                demoPhotoLabel={t.common.demoPhotoBadge}
                 services={catalog?.services}
               />
             ))}

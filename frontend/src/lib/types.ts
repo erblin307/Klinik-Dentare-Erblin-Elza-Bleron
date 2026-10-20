@@ -31,6 +31,8 @@ export type Dentist = {
   name: string;
   specialty: string;
   bio: string;
+  /** Path of a portrait on this website (/photos/…), or null for initials. */
+  photo: string | null;
   service_ids: number[];
   working_hours: Hours[];
 };

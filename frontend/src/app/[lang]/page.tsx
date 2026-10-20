@@ -132,7 +132,15 @@ export default async function HomePage({ params }: PageProps<"/[lang]">) {
           ) : dentists.length ? (
             <div className="grid gap-x-10 gap-y-14 sm:grid-cols-2 lg:grid-cols-3">
               {dentists.slice(0, 3).map((dentist) => (
-                <DentistProfile key={dentist.id} dentist={dentist} locale={lang} t={t.dentists} closedLabel={t.contact.closed} compact />
+                <DentistProfile
+                  key={dentist.id}
+                  dentist={dentist}
+                  locale={lang}
+                  t={t.dentists}
+                  closedLabel={t.contact.closed}
+                  demoPhotoLabel={t.common.demoPhotoBadge}
+                  compact
+                />
               ))}
             </div>
           ) : (

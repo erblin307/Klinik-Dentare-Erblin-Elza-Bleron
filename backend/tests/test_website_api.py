@@ -33,6 +33,7 @@ class WebsiteApiTests(TestCase):
         # Every day 09:00–13:00 and 14:00–18:00, so tests do not depend on the weekday.
         cls.dentist = make_bookable_dentist(cls.clinic, services=[cls.checkup], weekdays=range(7))
         cls.dentist.specialty = "Prosthodontics"
+        cls.dentist.photo = "/photos/dentists/one.jpg"
         cls.dentist.save()
         cls.hidden_dentist = make_dentist(cls.clinic, is_bookable=False)
         KnowledgeEntry.objects.create(
@@ -84,12 +85,15 @@ class WebsiteApiTests(TestCase):
         dentists = response.json()["dentists"]
         self.assertEqual([d["id"] for d in dentists], [self.dentist.pk])
         self.assertEqual(dentists[0]["specialty"], "Prosthodontics")
+        self.assertEqual(dentists[0]["photo"], "/photos/dentists/one.jpg")
         self.assertEqual(dentists[0]["service_ids"], [self.checkup.pk])
         self.assertEqual(dentists[0]["working_hours"][:2], [
             {"weekday": 0, "start": "09:00", "end": "13:00"},
             {"weekday": 0, "start": "14:00", "end": "18:00"},
         ])  # fmt: skip
-        self.assertEqual(set(dentists[0]), {"id", "name", "specialty", "bio", "service_ids", "working_hours"})
+        self.assertEqual(
+            set(dentists[0]), {"id", "name", "specialty", "bio", "photo", "service_ids", "working_hours"}
+        )
 
     def test_articles_are_published_ones_filtered_by_language(self):
         titles = [a["title"] for a in self.get("articles").json()["articles"]]

@@ -1,6 +1,6 @@
 import Image from "next/image";
 
-import { PHOTOS, type PhotoSlot as Slot } from "@/lib/photos";
+import { PHOTOS, isDemoPhoto, type PhotoSlot as Slot } from "@/lib/photos";
 
 import { Icon } from "./Icon";
 
@@ -21,7 +21,7 @@ export function PhotoSlot({ slot, alt, placeholderLabel, demoLabel, className = 
     return (
       <div className={`relative overflow-hidden bg-sand ${className}`}>
         <Image src={photo.src} alt={alt} fill sizes={sizes} priority={priority} className="object-cover" />
-        {photo.demo && (
+        {isDemoPhoto(photo.src) && (
           <span className="absolute bottom-3 left-3 rounded-full bg-ivory/90 px-3 py-1 text-[11px] font-medium tracking-wide text-ink">
             {demoLabel}
           </span>

@@ -80,6 +80,20 @@ class StaffTests(IntegrityTestCase):
         with self.assertViolates("staff_dentist_staff_member_id_key"):
             Dentist.objects.create(clinic=self.clinic, staff_member=staff_member)
 
+    def test_dentist_photo_must_be_an_image_path_of_the_website(self):
+        dentist = Dentist.objects.create(
+            clinic=self.clinic, staff_member=make_staff_member(self.clinic, role=StaffRole.DENTIST)
+        )
+        for valid in ["", "/photos/dentists/arta.jpg", "/photos/demo/dentist-1.webp"]:
+            Dentist.objects.filter(pk=dentist.pk).update(photo=valid)
+        for invalid in ["https://tracker.example/x.jpg", "/photos/../secret.jpg", "/photos/x.svg", "photo.jpg"]:
+            with self.subTest(invalid=invalid), self.assertViolates("staff_dentist_photo_path_valid"):
+                Dentist.objects.filter(pk=dentist.pk).update(photo=invalid)
+        dentist.photo = "https://tracker.example/x.jpg"
+        with self.assertRaises(ValidationError) as ctx:
+            dentist.full_clean()
+        self.assertIn("photo", ctx.exception.message_dict)
+
     def test_dentist_profile_requires_dentist_role(self):
         receptionist = make_staff_member(self.clinic, role=StaffRole.RECEPTIONIST)
         dentist = Dentist(clinic=self.clinic, staff_member=receptionist)
