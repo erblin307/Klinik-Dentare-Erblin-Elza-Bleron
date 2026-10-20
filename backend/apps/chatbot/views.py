@@ -22,8 +22,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from apps.clinics.models import Clinic
+from apps.core import ratelimit
 
-from . import ratelimit
 from .engine import ChatEngine
 from .models import ChatConversation, ChatLanguage
 

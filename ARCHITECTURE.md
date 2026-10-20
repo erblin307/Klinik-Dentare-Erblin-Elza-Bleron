@@ -10,7 +10,7 @@ is built today and the decisions behind it. Rules for working on it are in
 | -------------- | ------------------------ | ---------------------------- |
 | Backend, admin | Django 5.2 LTS (Python)  | Schema (Task 1); admin and booking engine (Task 2) |
 | Database       | Supabase PostgreSQL      | Schema and migrations ready  |
-| Frontend       | Next.js + TypeScript     | Later phase — not started    |
+| Frontend       | Next.js + TypeScript     | Website and chat widget (Task 4) |
 | AI assistant   | Ollama (local models)    | Chatbot backend and API (Task 3) |
 
 Django owns the database schema: all tables are created by Django migrations,
@@ -38,11 +38,11 @@ APIs (Data API, Auth, Storage) are not used.
     │   ├── scheduling/       # WorkingHours, TimeOff
     │   ├── appointments/     # Appointment; booking engine (booking.py)
     │   ├── knowledge/        # KnowledgeEntry — curated content for the AI
-    │   └── chatbot/          # chat engine, Ollama client, chat API, transcripts
-    └── tests/                # database integrity tests (cross-app)
+    │   ├── chatbot/          # chat engine, Ollama client, chat API, transcripts
+    │   └── website/          # read-only public API for the website
+    └── tests/                # backend tests (cross-app)
+frontend/                     # Next.js website and chat widget (see frontend/README.md)
 ```
-
-The future frontend will live in `frontend/`.
 
 ### App dependencies
 
@@ -59,7 +59,11 @@ scheduling   → clinics, staff
 appointments → clinics, staff, patients, catalog, scheduling
 knowledge    → clinics
 chatbot      → clinics, catalog, staff, patients, scheduling, appointments, knowledge
+website      → clinics, catalog, staff, scheduling, appointments, knowledge
 ```
+
+`apps/core/ratelimit.py` (cache-based fixed-window limits) is shared by the
+chat and website APIs.
 
 The graph applies to models and services. `admin.py` modules are the
 presentation layer: they may import any app, and all of them use
@@ -372,7 +376,63 @@ erasable by the visitor (`DELETE`) or a manager, and deleted after
 state once the booking is made. Message contents are never logged. Prompts
 go only to the configured Ollama server.
 
-## 9. Time handling
+## 9. Website
+
+### Public read-only API (`apps/website`)
+
+GET-only JSON endpoints for the website. They expose the same public
+information as the chatbot's knowledge base and real availability from
+`get_available_slots`; they write nothing. Bookings stay in the chat API with
+its explicit confirmation.
+
+| Path (`/api/public/clinics/<slug>/…`) | Returns |
+| ------------------------------------- | ------- |
+| `` (clinic) | name, contact, address, time zone, currency, opening hours (per weekday, earliest start to latest end of the bookable dentists), clinic-wide closures of the next 60 days (no reasons) |
+| `services/` | active services: duration, price (`null` = after consultation), ids of dentists who perform them |
+| `dentists/` | bookable dentists: name, specialty, bio, service ids, weekly working hours (no contact data or licence numbers) |
+| `articles/?language=&category=` | published knowledge articles |
+| `availability/?service=&date=&days=1..7&dentist=` | free slots (30-minute steps) with dentist; rate-limited to 60 requests per minute per client |
+
+Content responses may be cached for 5 minutes; availability is `no-store`.
+Unknown or inactive clinics give `404`.
+
+### Next.js frontend (`frontend/`)
+
+- App Router with language routes `/sq`, `/en`, `/de`; `proxy.ts` sends `/`
+  to the visitor's preferred language. Interface texts are in
+  `src/dictionaries`; every clinic fact (name, contact, services, prices,
+  dentists, hours, FAQs, about text) comes from the API.
+- Pages are server-rendered from the API and regenerated at most every 5
+  minutes (ISR). The build works without the backend; pages then show a
+  notice until the next regeneration, and keep their last good content if
+  the backend goes down later.
+- The browser calls `/api/chat/*` and `/api/public/*` on the site's own
+  origin; `next.config.ts` forwards them to Django. No CORS, no keys and no
+  backend address in the browser.
+- **Book page:** real availability per treatment, dentist and day. Choosing
+  a time hands the selection to the chat ("I would like to book …"), which
+  collects name and phone and books only after the explicit confirmation.
+  Nothing is booked from the page itself.
+- **Chat widget:** the existing chat API (start, message, `confirm_action`,
+  delete); slot options as buttons, Confirm/Not now for pending actions,
+  states for loading, errors (busy, rate limit, expired, network) and the
+  offline assistant (with the clinic's phone). The conversation is kept in
+  `sessionStorage` (this tab only) and can be deleted by the visitor. The
+  panel's code loads on first open.
+- Accessibility: landmarks and skip link, `aria-current`, labelled controls,
+  keyboard support (Escape closes menu and chat), native disclosure widgets,
+  visible focus, reduced-motion support; axe-core (WCAG 2.1 AA) reports no
+  violations on any page.
+- SEO: per-page titles and descriptions, canonical and `hreflang`
+  alternates, `sitemap.xml`, `robots.txt`, schema.org `Dentist` data from the
+  clinic's real details.
+- Photos: none are bundled; labelled placeholders until the clinic adds its
+  own (`frontend/public/photos/`). Dentists are shown with monograms.
+- Production: route `/api/` to Django at the reverse proxy (see "Deployment
+  items" in section 12) so the backend sees each visitor's address for rate
+  limiting.
+
+## 10. Time handling
 
 - `USE_TZ = True`; all `DateTimeField`s are stored in UTC (`timestamptz`).
 - `Clinic.timezone` (IANA name, validated) defines the local zone in which
@@ -385,7 +445,7 @@ go only to the configured Ollama server.
   and the appointment list shows each start in its clinic's time.
 - Weekdays use Python's numbering: Monday = 0 … Sunday = 6.
 
-## 10. Configuration
+## 11. Configuration
 
 All configuration comes from environment variables (optionally `backend/.env`,
 loaded by python-dotenv; real environment variables take precedence).
@@ -413,7 +473,7 @@ model is installed (`ollama pull <model>`). Rate limits use Django's cache:
 the default in-process cache is fine for one process; several workers need
 a shared cache backend for exact limits.
 
-## 11. Supabase
+## 12. Supabase
 
 - Connect with the **Session pooler** (IPv4, port 5432) or the direct
   connection. The Transaction pooler (port 6543) is not supported by this
@@ -434,9 +494,12 @@ a shared cache backend for exact limits.
 
 Deployment items still open (depend on the hosting choice):
 `SECURE_HSTS_SECONDS`, `SECURE_SSL_REDIRECT` / proxy SSL header, static file
-serving.
+serving, a Content-Security-Policy for the website, and routing `/api/` to
+Django directly at the reverse proxy (when API calls pass through the
+Next.js server, Django sees the Next.js server as the client address, so the
+per-client rate limits apply to all visitors together).
 
-## 12. Testing
+## 13. Testing
 
 - Django's test runner against a local PostgreSQL (`python manage.py test`).
 - `backend/tests/` holds:
@@ -453,9 +516,15 @@ serving.
     three languages, knowledge retrieval and isolation, the Ollama client
     against a local stand-in server, interpretation validation, booking /
     cancel / reschedule flows, the confirmation rules, the API (auth, limits,
-    erasure, concurrent messages). Tests use a fake model; no Ollama needed.
+    erasure, concurrent messages). Tests use a fake model; no Ollama needed;
+  - website API tests (`test_website_api`): content, exclusions, availability,
+    validation, caching headers, rate limiting.
+- `frontend/`: unit tests with Node's built-in runner (`npm test`) for
+  locale negotiation, formatting in the clinic's time zone, the chat client
+  and state, and dictionary completeness; ESLint; TypeScript; production
+  build.
 
-## 13. Decisions
+## 14. Decisions
 
 | Decision | Reason |
 | -------- | ------ |
@@ -476,5 +545,9 @@ serving.
 | Booking texts from templates, not generated | Times, dentists and references must be exact in every language. |
 | Deterministic language detection | Reliable for sq/en/de, testable, no dependency. |
 | Booking reference on `Appointment` | Lets anonymous visitors prove ownership of a booking; also useful for staff search. |
+| Read-only public API for the website (approved in Task 4) | Pages show real clinic data; no second booking path — booking stays in the chat API with explicit confirmation. |
+| Next.js forwards `/api/*` to Django (same origin) | No CORS configuration or backend address in the browser. |
+| No UI, i18n, icon or test libraries in the frontend | Tailwind, a small dictionary module, inline SVG icons and Node's test runner suffice. |
+| No bundled stock photography | Photos presented as the clinic must be real; placeholders are labelled. |
 | Full-text search rather than embeddings | Clinic knowledge is small; avoids pgvector and an embedding model for now. |
 | Deadlocks between conflicting inserts are retried (max. 3 attempts) | Known PostgreSQL behaviour of exclusion constraints under exact races; the retry turns it into the correct `SLOT_TAKEN` error. |

@@ -35,6 +35,19 @@ Keep dependencies few, mainstream and pinned to a compatible range in
 The chatbot uses Ollama through its HTTP API with the standard library, and
 plain Django views for its JSON API — no AI SDK and no REST framework.
 
+Frontend (`frontend/package.json`, exact versions):
+
+| Package | Why it is needed |
+| ------- | ---------------- |
+| next, react, react-dom | Website framework (App Router, server rendering, routing). |
+| tailwindcss, @tailwindcss/postcss | Styling with the project's design tokens. |
+| typescript, @types/* | Type checking. |
+| eslint, eslint-config-next | Linting incl. React Hooks and accessibility rules. |
+
+Not used on purpose in the frontend: UI kits, i18n, icon, data-fetching and
+test libraries (dictionaries, inline SVG, `fetch` and Node's test runner
+suffice).
+
 Not used on purpose: test-data factory libraries (plain functions suffice),
 alternative test runners (Django's runner suffices), any paid AI SDK.
 
@@ -73,6 +86,10 @@ alternative test runners (Django's runner suffices), any paid AI SDK.
 - **Never commit credentials.** Secrets live only in environment variables
   or `backend/.env` (git-ignored). `backend/.env.example` holds placeholders
   only. Settings have no defaults for secrets and fail fast when missing.
+- The website never needs API keys: it reads only public data, and the
+  browser reaches the backend through the site's own origin.
+- Clinic photos on the website must be the clinic's own; no stock photos
+  presented as the clinic. Demo content is labelled as such.
 - Never paste keys, passwords, connection strings or tokens into code, docs,
   tests, commit messages, issues or chat transcripts.
 - **Never expose patient data.** No real patient data in the repository,
