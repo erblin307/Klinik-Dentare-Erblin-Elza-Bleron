@@ -150,8 +150,14 @@ const en = {
     unavailable: "This information is temporarily unavailable. Please try again later or contact the clinic.",
     notConfigured: "The website is not connected to a clinic yet (CLINIC_SLUG is not set).",
     demoPhoto: "Photo placeholder — add the clinic's own photo",
+    demoPhotoBadge: "Demo photo",
+    photoAlt: {
+      hero: "A dentist examining a patient",
+      treatment: "Treatment room with a dental chair",
+      reception: "Reception area",
+    },
     demoNotice:
-      "Demo website: clinic details, services, dentists and answers come from the clinic database; photos are placeholders.",
+      "Demo website: clinic details, services, dentists and answers come from the clinic database; the photos are demo images.",
     notFoundTitle: "Page not found",
     notFoundBody: "The page you are looking for does not exist.",
     backHome: "Back to the home page",

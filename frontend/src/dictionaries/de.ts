@@ -149,8 +149,14 @@ const de: Dictionary = {
     unavailable: "Diese Informationen sind vorübergehend nicht verfügbar. Bitte später erneut versuchen oder die Praxis kontaktieren.",
     notConfigured: "Die Website ist noch mit keiner Praxis verbunden (CLINIC_SLUG ist nicht gesetzt).",
     demoPhoto: "Platzhalter — eigenes Foto der Praxis einfügen",
+    demoPhotoBadge: "Demo-Foto",
+    photoAlt: {
+      hero: "Zahnärztin bei der Untersuchung einer Patientin",
+      treatment: "Behandlungsraum mit Zahnarztstuhl",
+      reception: "Empfangsbereich",
+    },
     demoNotice:
-      "Demo-Website: Praxisdaten, Leistungen, Zahnärzte und Antworten kommen aus der Datenbank der Praxis; die Fotos sind Platzhalter.",
+      "Demo-Website: Praxisdaten, Leistungen, Zahnärzte und Antworten kommen aus der Datenbank der Praxis; die Fotos sind Demo-Bilder.",
     notFoundTitle: "Seite nicht gefunden",
     notFoundBody: "Die gesuchte Seite existiert nicht.",
     backHome: "Zur Startseite",

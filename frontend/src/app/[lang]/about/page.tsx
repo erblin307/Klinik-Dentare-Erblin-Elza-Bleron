@@ -46,8 +46,9 @@ export default async function AboutPage({ params }: PageProps<"/[lang]/about">) 
         <aside className="lg:col-span-5">
           <PhotoSlot
             slot="reception"
-            alt={clinic?.name ?? ""}
+            alt={t.common.photoAlt.reception}
             placeholderLabel={t.common.demoPhoto}
+            demoLabel={t.common.demoPhotoBadge}
             className="aspect-[4/3] rounded-sm"
             sizes="(min-width: 1024px) 40vw, 100vw"
           />

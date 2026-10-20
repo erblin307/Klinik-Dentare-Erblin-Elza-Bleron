@@ -51,6 +51,9 @@ public/photos/         the clinic's own photos (see README there)
 
 ## Photos
 
-No stock photos are bundled: pictures presented as "our clinic" must be the
-clinic's own. Until they are added (`public/photos/` + `src/lib/photos.ts`)
-the site shows labelled placeholders. Dentists are shown with monograms.
+`public/photos/` holds three **demo images** (hero 4:5, treatment 21:9,
+reception 4:3), each shown with a visible "Demo photo" label. Pictures
+presented as "our clinic" must be the clinic's own: replace the files and set
+`demo: false` in `src/lib/photos.ts` (see `public/photos/README.md` for
+sizes). Without a file (`src: null`) a labelled placeholder is shown.
+Dentists are shown with monograms.

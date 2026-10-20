@@ -149,8 +149,14 @@ const sq: Dictionary = {
     unavailable: "Ky informacion nuk është i disponueshëm për momentin. Provoni më vonë ose kontaktoni klinikën.",
     notConfigured: "Faqja ende nuk është e lidhur me një klinikë (CLINIC_SLUG nuk është vendosur).",
     demoPhoto: "Vend për foto — shtoni foton e vetë klinikës",
+    demoPhotoBadge: "Foto demonstruese",
+    photoAlt: {
+      hero: "Dentistja duke kontrolluar një paciente",
+      treatment: "Salla e trajtimit me karrige dentare",
+      reception: "Zona e recepsionit",
+    },
     demoNotice:
-      "Faqe demonstruese: të dhënat e klinikës, shërbimet, dentistët dhe përgjigjet vijnë nga baza e të dhënave të klinikës; fotot janë vende bosh.",
+      "Faqe demonstruese: të dhënat e klinikës, shërbimet, dentistët dhe përgjigjet vijnë nga baza e të dhënave të klinikës; fotot janë demonstruese.",
     notFoundTitle: "Faqja nuk u gjet",
     notFoundBody: "Faqja që kërkoni nuk ekziston.",
     backHome: "Kthehu në ballinë",

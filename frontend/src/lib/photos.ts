@@ -1,11 +1,11 @@
-// Clinic photography. Put the clinic's own photos in public/photos/ and set
-// the paths here; until then the site shows labelled placeholders. Stock
-// photos presented as "our clinic" would mislead patients, so none are bundled.
+// Clinic photography. Photos live in public/photos/. Images that are not
+// photos of the clinic itself must keep `demo: true`, which shows a visible
+// "Demo photo" label. With `src: null` a labelled placeholder is shown.
 
 export type PhotoSlot = "hero" | "treatment" | "reception";
 
-export const PHOTOS: Record<PhotoSlot, { src: string | null; width: number; height: number }> = {
-  hero: { src: null, width: 1200, height: 1500 },
-  treatment: { src: null, width: 1600, height: 1000 },
-  reception: { src: null, width: 1200, height: 900 },
+export const PHOTOS: Record<PhotoSlot, { src: string | null; demo: boolean }> = {
+  hero: { src: "/photos/hero.jpg", demo: true },
+  treatment: { src: "/photos/treatment.jpg", demo: true },
+  reception: { src: "/photos/reception.jpg", demo: true },
 };

@@ -74,8 +74,9 @@ export default async function HomePage({ params }: PageProps<"/[lang]">) {
           <div className="md:col-span-5">
             <PhotoSlot
               slot="hero"
-              alt={clinic?.name ?? t.meta.dentalClinic}
+              alt={t.common.photoAlt.hero}
               placeholderLabel={t.common.demoPhoto}
+              demoLabel={t.common.demoPhotoBadge}
               className="aspect-[4/5] rounded-t-[999px]"
               sizes="(min-width: 768px) 40vw, 100vw"
               priority
@@ -109,8 +110,9 @@ export default async function HomePage({ params }: PageProps<"/[lang]">) {
       <Container>
         <PhotoSlot
           slot="treatment"
-          alt=""
+          alt={t.common.photoAlt.treatment}
           placeholderLabel={t.common.demoPhoto}
+          demoLabel={t.common.demoPhotoBadge}
           className="aspect-[16/9] rounded-sm md:aspect-[21/9]"
           sizes="(min-width: 1152px) 1152px, 100vw"
         />

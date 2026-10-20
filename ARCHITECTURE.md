@@ -426,8 +426,9 @@ Unknown or inactive clinics give `404`.
 - SEO: per-page titles and descriptions, canonical and `hreflang`
   alternates, `sitemap.xml`, `robots.txt`, schema.org `Dentist` data from the
   clinic's real details.
-- Photos: none are bundled; labelled placeholders until the clinic adds its
-  own (`frontend/public/photos/`). Dentists are shown with monograms.
+- Photos: three demo images (`frontend/public/photos/`), each shown with a
+  visible "Demo photo" label until the clinic replaces them with its own
+  (`demo: false` in `src/lib/photos.ts`). Dentists are shown with monograms.
 - Production: route `/api/` to Django at the reverse proxy (see "Deployment
   items" in section 12) so the backend sees each visitor's address for rate
   limiting.
@@ -548,6 +549,6 @@ per-client rate limits apply to all visitors together).
 | Read-only public API for the website (approved in Task 4) | Pages show real clinic data; no second booking path — booking stays in the chat API with explicit confirmation. |
 | Next.js forwards `/api/*` to Django (same origin) | No CORS configuration or backend address in the browser. |
 | No UI, i18n, icon or test libraries in the frontend | Tailwind, a small dictionary module, inline SVG icons and Node's test runner suffice. |
-| No bundled stock photography | Photos presented as the clinic must be real; placeholders are labelled. |
+| Demo photos are labelled on the image | Photos presented as the clinic must be real; until then the images say they are demo images. |
 | Full-text search rather than embeddings | Clinic knowledge is small; avoids pgvector and an embedding model for now. |
 | Deadlocks between conflicting inserts are retried (max. 3 attempts) | Known PostgreSQL behaviour of exclusion constraints under exact races; the retry turns it into the correct `SLOT_TAKEN` error. |
